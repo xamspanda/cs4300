@@ -2,22 +2,22 @@
 
 ## Setup and execution
 
-Use Python 3.12 or newer. In DevEDU, the repository is `/coursework/cs4300`.
-Keep this virtual environment separate from Homework 2 and the group project.
+Requires Python 3.12 or newer. Run the following commands from the
+repository root (for example, `/coursework/cs4300` in DevEDU):
 
 ```bash
-cd /coursework/cs4300/homework1
+cd homework1
 python3 -m venv .venv --system-site-packages
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 python3 -m pytest
 ```
 
-Run `source .venv/bin/activate` again when starting a new terminal. On a local
-computer, first change to this repository's `homework1` directory instead.
-The requirements file records the two direct dependency versions.
+The virtual environment must be activated again in each new terminal.
+`requirements.txt` pins the two direct dependencies, NumPy and pytest.
+Homework 1 uses its own virtual environment, separate from other assignments.
 
-Run one task or all seven demonstrations:
+Run one task or all seven demonstrations from the `homework1` directory:
 
 ```bash
 python3 src/task1.py
