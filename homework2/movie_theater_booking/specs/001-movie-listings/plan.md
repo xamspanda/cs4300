@@ -1,12 +1,15 @@
 # Plan: Movie listings
 
-**Spec:** [spec.md](spec.md)   **Status:** Approved (worked example)
+**Spec:** [spec.md](spec.md)   **Status:** Approved
 
 ## 1. Approach
 One `Movie` model, a `ModelSerializer`, and a Django REST Framework (DRF) `ModelViewSet` registered on a
 `DefaultRouter` at `/api/movies/`. That gives full create, read, update, delete (CRUD) support with correct status codes and very little
 code. The UI is a plain Django view that renders `movie_list.html` from the same model, so the
 page and the API always show the same data.
+Writes require a signed-in user through DRF's `IsAuthenticatedOrReadOnly`, set as the project
+default in `REST_FRAMEWORK` (AC-10). `BasicAuthentication` is listed before `SessionAuthentication`
+so an anonymous write gets **401** with a `WWW-Authenticate` header rather than 403.
 **Rejected:** writing separate `APIView`s for list, create and detail. It's more code, and the
 assignment specifically asks for viewsets.
 
@@ -36,7 +39,7 @@ Each **Spec ref** names the acceptance criterion (AC-#) in [spec.md](spec.md) th
 ## 4. Files to create / change
 | File | Change |
 |---|---|
-| `movie_theater_booking/settings.py` | add `rest_framework`, `bookings`, `behave_django` to `INSTALLED_APPS` |
+| `movie_theater_booking/settings.py` | add `rest_framework`, `bookings`, `behave_django` to `INSTALLED_APPS`; `REST_FRAMEWORK` auth + `IsAuthenticatedOrReadOnly` (AC-10) |
 | `movie_theater_booking/urls.py` | include `bookings.urls` |
 | `bookings/models.py` | `Movie` |
 | `bookings/serializers.py` | `MovieSerializer` (duration > 0 validation) |
@@ -59,6 +62,7 @@ Each **Spec ref** names the acceptance criterion (AC-#) in [spec.md](spec.md) th
 | AC-7 | API | `test_update_movie`, `test_delete_movie` |
 | AC-8 | API | `test_retrieve_movie`, `test_get_missing_movie_404` |
 | AC-9 | view test | `test_movie_list_uses_base_template` (`assertTemplateUsed`) |
+| AC-10 | API | `test_anonymous_can_read_but_not_change_movies` |
 
 ## 6. Risks & decisions
 - Anyone can create, update or delete movies for now (see Out of scope). Say so in the README.

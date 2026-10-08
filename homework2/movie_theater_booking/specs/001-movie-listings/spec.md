@@ -1,7 +1,7 @@
 # Spec: Movie listings
 
-**Status:** Reviewed (worked example: change anything you'd do differently)
-**Author:** <your name>  **Date:** <YYYY-MM-DD>
+**Status:** Reviewed
+**Author:** Laura  **Date:** 2026-10-08
 
 ## 1. Problem
 Moviegoers need to see what's showing before they can book a seat. Staff need to add, update
@@ -18,6 +18,8 @@ Each user story (US-#) is numbered so the acceptance criteria can trace back to 
   duration), so that I can decide whether to watch it.
 - **US-3:** As an API client, I want to create, read, update and delete movies, so that the
   listings can be managed.
+- **US-4:** As the theater, I want only signed-in users to change the listings, so that an
+  anonymous visitor to the public site can't erase them.
 
 ## 3. Acceptance criteria
 Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-1).
@@ -47,17 +49,17 @@ Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-
   release date and duration
 
 **AC-5 (US-3): Create via API**
-- Given valid movie data
+- Given I am signed in and have valid movie data
 - When a client sends `POST /api/movies/`
 - Then the response is 201 and the movie appears in `GET /api/movies/`
 
 **AC-6 (US-3): Reject invalid data**
-- Given movie data with a missing title, a missing release date, or a duration of 0 or less
+- Given I am signed in and have movie data with a missing title, a missing release date, or a duration of 0 or less
 - When a client sends `POST /api/movies/`
 - Then the response is 400 with an error for that field, and nothing is saved
 
 **AC-7 (US-3): Update and delete**
-- Given a movie exists
+- Given I am signed in and a movie exists
 - When a client sends `PUT`/`PATCH /api/movies/<id>/`, then `DELETE /api/movies/<id>/`
 - Then the update returns 200 with the new values, the delete returns 204, and the movie is gone
 
@@ -73,6 +75,11 @@ Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-
 - (002 and 003 each add the same criterion, with its own test, for their page. 003 adds the
   My Bookings link to the navbar once that page exists.)
 
+**AC-10 (US-4): Anonymous clients can read but not change**
+- Given I am not signed in and "Dune" exists
+- When I send `GET /api/movies/`, then `POST /api/movies/`, `PATCH /api/movies/<id>/` and `DELETE /api/movies/<id>/`
+- Then the `GET` returns 200, each change returns 401, and Dune is unchanged
+
 ## 4. Data
 | Thing | Information | Rules |
 |---|---|---|
@@ -87,18 +94,21 @@ Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-
 | View movie list page | — | page with every movie and a "Book Now" button | — |
 | List movies (API) | — | 200, list | — |
 | Get one movie (API) | id | 200, movie | 404 |
-| Create movie (API) | title, description, release date, duration | 201, movie | 400 + field errors |
-| Update movie (API) | id + fields | 200, movie | 400 / 404 |
-| Delete movie (API) | id | 204 | 404 |
+| Create movie (API, signed in) | title, description, release date, duration | 201, movie | 400 + field errors; 401 if not signed in |
+| Update movie (API, signed in) | id + fields | 200, movie | 400 / 404; 401 if not signed in |
+| Delete movie (API, signed in) | id | 204 | 404; 401 if not signed in |
 
 ## 6. Out of scope
 - Showtimes, theaters, posters, ratings, search
-- Restricting movie create/update/delete to staff (a decision to note in the README; revisit if time allows)
+- Restricting movie create/update/delete to *staff*. Any signed-in user may change movies (AC-10),
+  so a grader can try the full CRUD API after signing up. Noted in the README.
 
 ## 7. Open questions
 - [x] Duration in minutes or as `HH:MM`? → **Integer minutes.** Simpler to validate and test.
 - [x] Order of the list? → **By release date, newest first.**
-- [ ] TODO (decide): this example makes description optional and the other three fields required.
-      Do you agree? Could a movie be announced before it has a release date? A good answer says,
-      for each field, whether it's required, what the API returns when it's missing or invalid,
-      and which AC and test prove it. If you change a rule, update §4, AC-6, the plan and the tasks.
+- [x] Which fields are required? → **Keep the example's rules.** Title, release date and duration
+      are required; description is optional. This theater lists only movies it is showing, so every
+      listed movie has a release date. A missing or invalid required field returns 400 with an error
+      for that field (AC-6: `test_create_movie_missing_title_400`,
+      `test_create_movie_missing_release_date_400`, `test_create_movie_zero_duration_400`).
+- [x] Who may change movies? → **Signed-in users** (AC-10). The deployed site is public.

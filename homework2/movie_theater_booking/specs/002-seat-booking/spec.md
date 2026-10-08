@@ -1,10 +1,7 @@
 # Spec: Seat booking
 
-**Status:** Draft: **you finish this spec**
-**Author:** <your name>  **Date:** <YYYY-MM-DD>
-
-> The user stories (US-#) and first acceptance criteria (AC-#) are started for you. Every `TODO` is a decision **you**
-> make. Compare with `001-movie-listings/spec.md` for the level of detail to aim for.
+**Status:** Reviewed
+**Author:** Laura  **Date:** 2026-10-08
 
 ## 1. Problem
 A moviegoer who has picked a movie needs to see which seats are free and reserve one.
@@ -16,7 +13,11 @@ A moviegoer who has picked a movie needs to see which seats are free and reserve
 - **US-2:** As a moviegoer, I want to book an available seat, so that it's reserved for me.
 - **US-3:** As an API client, I want to check seat availability and book seats through `/api/seats/`.
   (HW2 also has `/api/bookings/` create bookings; see AC-6 and feature 003.)
-- TODO: anything else? (For example, can a moviegoer book more than one seat at a time?)
+- **US-4:** As a moviegoer, I want to create an account and sign in, so that my bookings are mine.
+- **US-5:** As the theater, I want every movie to come with its seats, so that it can be booked as
+  soon as it is listed.
+
+One booking is one seat. To sit with friends, a moviegoer books each seat in turn.
 
 ## 3. Acceptance criteria
 
@@ -29,12 +30,15 @@ A moviegoer who has picked a movie needs to see which seats are free and reserve
 **AC-2 (US-2): Book an available seat**
 - Given I am signed in and seat A1 is available for Dune
 - When I book A1
-- Then TODO: what does the user see, and what changes in the data?
+- Then I stay on Dune's seat booking page and see "You booked seat A1 for Dune."
+- And a booking of A1 for Dune exists with me as its user and today's date, and A1 is shown as
+  unavailable from now on (on the page and in `/api/seats/`)
 
 **AC-3 (US-2): Seat already taken**
 - Given seat A2 is already booked for Dune
 - When I try to book A2
-- Then TODO: what happens in the UI? What status code does the API return?
+- Then no booking is made. The page shows "Seat A2 for Dune is already booked." and the API returns
+  **409 Conflict** with that message in `detail`
 
 **AC-4 (US-2): No double booking, even at the same moment**
 - Given seat A1 is available for Dune
@@ -63,40 +67,102 @@ A moviegoer who has picked a movie needs to see which seats are free and reserve
 - When it renders
 - Then it extends `base.html`, with the same navbar as the movie list
 
-- TODO **AC-8:** What if the user isn't signed in?
-- TODO **AC-9:** What if the seat or movie doesn't exist?
-- TODO **AC-10+:** API criteria for `/api/seats/`: list, availability, booking.
+**AC-8 (US-2, US-4): Not signed in**
+- Given I am not signed in
+- When I open Dune's seat booking page
+- Then I can see the seats, but instead of booking I see a prompt to sign in
+- When I submit a booking anyway, or send `POST /api/seats/<id>/book/`
+- Then no booking is made: the page sends me to the sign-in page (and back to Dune's seats after I
+  sign in), and the API returns **401**
+
+**AC-9 (US-1, US-2): Missing movie or seat**
+- Given no movie with id 9999 and no seat with id 9999 exist
+- When I open the seat booking page for movie 9999, or send `POST /api/seats/9999/book/`
+- Then the response is **404**
+- When I submit the page for Dune with a seat id that isn't one of Dune's seats
+- Then no booking is made, and the page shows "That seat does not exist for this movie."
+
+**AC-10 (US-3): List seats and availability via API**
+- Given Dune has seats A1–A3 where A2 is booked, and "Up" has its own seats
+- When a client sends `GET /api/seats/?movie=<Dune's id>`
+- Then the response is 200 with only Dune's seats, each with id, movie, seat number and booking status
+  (`available` or `booked`), A2 being `booked`
+- When a client adds `&booking_status=available`
+- Then A2 is left out
+- When `movie` is not a whole number
+- Then the response is 400
+
+**AC-11 (US-3): Book through the seats API**
+- Given I am signed in and Dune's seat A1 is available
+- When I send `POST /api/seats/<A1's id>/book/`
+- Then the response is **201** with the new booking (id, movie, seat, user, booking date), and A1's
+  booking status is now `booked`
+
+**AC-12 (US-3, US-5): Seats can't be created, changed or deleted through the API**
+- Given a seat exists
+- When a signed-in client sends `POST /api/seats/`, or `PUT`/`PATCH`/`DELETE /api/seats/<id>/`
+- Then the response is **405**, and the seat is unchanged. (A seat changes status only by booking
+  or cancelling. Seats come with their movie: AC-13.)
+
+**AC-13 (US-5): A new movie comes with its seats**
+- Given no movies exist
+- When a movie is created (through the API or the admin site)
+- Then it has 40 seats, rows A–E with seats 1–8 (A1 … E8), all `available`
+
+**AC-14 (US-4): Sign up, sign in and sign out**
+- Given I have no account
+- When I sign up with a new username and a valid password (twice)
+- Then I am signed in and returned to the movie list, and the navbar shows my username and "Sign out"
+- When I sign up with a username that is taken, or two passwords that don't match
+- Then I see the error and no account is made
+- When I sign out, then sign in again with my username and password
+- Then I am signed in again
 
 ## 4. Data
 | Thing | Information | Rules |
 |---|---|---|
-| Seat | seat number, booking status | TODO: is the seat number unique? What format? Is booking status stored, or worked out from bookings? (See Open questions.) |
-| Booking | movie, seat, user, booking date | User is always the signed-in user (AC-5). No two bookings of the same seat, enforced by the database (AC-4). TODO: "the same seat" means the same seat, or the same seat *for the same movie*? |
+| Seat | movie, seat number, booking status | Each seat belongs to **one movie** (one screening). Seat number is a row letter A–E and a number 1–8, unique within its movie. Booking status is `available` or `booked`, stored on the seat, and changed only by booking or cancelling. |
+| Booking | movie, seat, user, booking date | User is always the signed-in user (AC-5). Movie is the seat's movie. At most one booking per seat, enforced by the database (AC-4). Booking date is set when the booking is made. |
 
 ## 5. API / UI behavior
 | Action | Input | Success result | Failure result |
 |---|---|---|---|
-| View seats for a movie (page) | movie | TODO | TODO |
-| List seats (API) | TODO | TODO | TODO |
-| Book a seat (API + page) | TODO | TODO | TODO |
+| View seats for a movie (page) | movie | page with every seat, booked ones unavailable | 404 if the movie doesn't exist |
+| Book a seat (page, signed in) | seat | back to the seat page with a success message | "already booked" or "does not exist for this movie" message; sign-in page if not signed in |
+| List seats (API) | optional `movie`, `booking_status` | 200, list | 400 if `movie` is not a whole number |
+| Get one seat (API) | id | 200, seat | 404 |
+| Book a seat (API, signed in) | seat id in the URL | 201, booking | 409 taken; 404 no such seat; 401 not signed in |
+| Change seats (API) | — | — | 405 |
+| Sign up / sign in / sign out (page) | username, password | signed in (or out), back to movie list | form errors |
 
 ## 6. Out of scope
-- TODO: e.g., payments, seat maps with rows and aisles, holding a seat for 10 minutes
+- Payments, prices, tickets
+- Booking several seats in one request; seat maps with aisles or accessibility seating
+- Holding a seat for a few minutes while the user decides
+- Showtimes or several screenings of one movie (a movie *is* its one screening here)
+- Password reset and email confirmation
+- Cancelling a booking: feature 003 (My Bookings)
 
 ## 7. Open questions
-- [ ] **The assignment's Seat model has no movie field.** Is a seat booked for *every* movie, or
-      is availability per movie? How do the Seat and Booking models together answer that? Decide,
-      and write down why.
-- [ ] **One source of truth for "is this seat taken?"** Seat has a booking status, and Booking
-      also records that the seat is taken. If they disagree (a booking exists but the status says
-      "available"), which one is right? Decide: is the status **stored** on Seat, or **worked out**
-      from bookings each time? A good answer says: (1) whether availability is global or per
-      (movie, seat), (2) which data is the source of truth, (3) if you store the status, every place
-      that must update it (book, cancel, admin, delete) and how you keep them in step, and (4) which
-      AC and test would catch them disagreeing.
-- [ ] **Where does "book a seat" live?** HW2 lets you book through `/api/seats/` *and*
-      `/api/bookings/` (built in 003), and the page books too. All three must follow the same rules
-      (AC-6 here, AC-7 in 003). Decide which one operation they all call. A good answer names the single
-      place the rules (seat free? signed in? who's the user?) live, and why copying them would break AC-6.
-- [ ] Can a booking be cancelled? If so, does that belong in this feature or in 003?
-- [ ] TODO
+- [x] **The assignment's Seat model has no movie field.** Is a seat booked for *every* movie, or
+      is availability per movie? → **Per movie.** Seat gets a movie, so each movie has its own
+      40 seats, like one screening in one auditorium. Booking a seat for Dune leaves Up's seats
+      alone. Booking still records its movie, as the assignment asks; it is always the seat's movie.
+- [x] **One source of truth for "is this seat taken?"** → (1) Availability is per seat, and a seat
+      belongs to one movie, so it is per (movie, seat). (2) **The Booking is the source of truth**:
+      a seat is taken exactly when a booking for it exists, and the database refuses a second one.
+      (3) The stored booking status is a copy kept so the seat list can show and filter it cheaply.
+      Only the one booking operation (book, and cancel in 003) writes it, inside the same database
+      transaction as the booking change. The admin site shows status as read-only, can't add
+      bookings, and cancels through the same operation when it deletes them. Deleting a movie
+      deletes its seats and bookings together. (4) AC-2 and AC-11 check the status after booking,
+      and 003's AC-9 checks it after cancelling.
+- [x] **Where does "book a seat" live?** → One function in its own module. The seat page,
+      `/api/seats/<id>/book/` and `/api/bookings/` (003) all call it with the signed-in user and the
+      seat. It checks the seat is free, saves the booking and sets the status, and turns the
+      database's duplicate refusal into the same "already booked" error. A second copy of these
+      rules could drift (for example, forget the status update), and AC-6 would fail.
+- [x] Can a booking be cancelled? → **Yes, by its own user, in feature 003** (My Bookings and
+      `DELETE /api/bookings/<id>/`). It uses the same module as booking.
+- [x] What status code for a taken seat? → **409 Conflict**: the request is valid but conflicts with
+      the seat's current state. 400 would suggest the client sent bad data.
