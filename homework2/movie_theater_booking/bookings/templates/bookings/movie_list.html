@@ -19,8 +19,7 @@
           <i class="bi bi-clock"></i> {{ movie.duration_display }}
         </p>
         <p class="card-text flex-grow-1">{{ movie.description|default:"No description yet." }}</p>
-        <button type="button" class="btn btn-warning mt-2 align-self-start" disabled
-                title="Seat booking arrives in feature 002">Book Now</button>
+        <a href="{% url 'book_seat' movie.id %}" class="btn btn-warning mt-2 align-self-start">Book Now</a>
       </div>
     </div>
   </div>

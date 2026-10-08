@@ -1,8 +1,14 @@
 """API viewsets and HTML page views for the bookings app."""
 
+from itertools import groupby
+from operator import attrgetter
+
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
-from django.shortcuts import redirect, render
+from django.contrib.auth.views import redirect_to_login
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_http_methods
 from rest_framework import exceptions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -66,6 +72,49 @@ class SeatViewSet(viewsets.ReadOnlyModelViewSet):
 def movie_list(request):
     """The home page: every movie with a Book Now button (001 AC-1 to AC-3)."""
     return render(request, "bookings/movie_list.html", {"movies": Movie.objects.all()})
+
+
+@require_http_methods(["GET", "POST"])
+def seat_booking(request, movie_id):
+    """Show a movie's seats (GET) and book one for the signed-in user (POST) (002).
+
+    POST always redirects back here (post/redirect/get), so refreshing the page
+    never resubmits a booking. The outcome is shown as a flash message.
+    """
+    movie = get_object_or_404(Movie, pk=movie_id)
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.path)  # AC-8
+        seat = movie.seats.filter(pk=_int_or_none(request.POST.get("seat"))).first()
+        if seat is None:
+            messages.error(request, "That seat does not exist for this movie.")  # AC-9
+        else:
+            try:
+                services.book_seat(request.user, seat)
+                messages.success(request, f"You booked seat {seat.seat_number} for {movie}.")
+            except services.SeatUnavailable as error:
+                messages.error(request, str(error))  # AC-3
+        return redirect("book_seat", movie_id=movie.pk)
+
+    seats = movie.seats.all()
+    my_seat_ids = set()
+    if request.user.is_authenticated:
+        my_seat_ids = set(
+            request.user.bookings.filter(movie=movie).values_list("seat_id", flat=True)
+        )
+    context = {
+        "movie": movie,
+        "seats": seats,
+        "rows": [(row, list(group)) for row, group in groupby(seats, key=attrgetter("row"))],
+        "available_count": sum(not s.is_booked for s in seats),
+        "my_seat_ids": my_seat_ids,
+    }
+    return render(request, "bookings/seat_booking.html", context)
+
+
+def _int_or_none(value):
+    """Turn form input into an id, or None if it isn't a whole number."""
+    return int(value) if value and value.isdigit() else None
 
 
 def signup(request):

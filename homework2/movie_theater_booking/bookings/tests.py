@@ -513,3 +513,123 @@ class AccountPageTests(TestCase):
             reverse("login"), {"username": "taylor", "password": self.password}
         )
         self.assertRedirects(response, reverse("movie_list"))
+
+
+class SeatBookingPageTests(TestCase):
+    """002 — The seat booking page (AC-1 to AC-3, AC-5 to AC-9)."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.sam = make_user("sam")
+        self.alex = make_user("alex")
+        self.a1 = seat(self.dune, "A1")
+        self.a2 = seat(self.dune, "A2")
+        services.book_seat(self.alex, self.a2)
+        self.url = reverse("book_seat", args=[self.dune.pk])
+
+    def test_movie_list_book_now_links_to_seat_page(self):
+        """AC-1: "Book Now" on the movie list links to the movie's seat page."""
+        response = self.client.get(reverse("movie_list"))
+        self.assertContains(response, f'href="{self.url}"')
+
+    def test_seat_page_shows_booked_and_available_seats(self):
+        """AC-1: booked seats are shown unavailable, the rest available."""
+        self.client.force_login(self.sam)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dune")
+        seats = {s.seat_number: s for s in response.context["seats"]}
+        self.assertTrue(seats["A2"].is_booked)
+        self.assertFalse(seats["A1"].is_booked)
+        # A free seat is a submit button; a booked seat's button is disabled.
+        self.assertContains(response, f'name="seat" value="{self.a1.pk}"')
+        self.assertContains(response, 'aria-label="Seat A2, booked" disabled')
+        self.assertEqual(len(response.context["rows"]), 5)
+
+    def test_seat_booking_uses_base_template(self):
+        """AC-7: the page extends base.html with the same navbar."""
+        response = self.client.get(self.url)
+        self.assertTemplateUsed(response, "bookings/seat_booking.html")
+        self.assertTemplateUsed(response, "bookings/base.html")
+
+    def test_seat_page_missing_movie_404(self):
+        """AC-9: the seat page for a movie that doesn't exist is 404."""
+        response = self.client.get(reverse("book_seat", args=[9999]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_book_seat_via_page(self):
+        """AC-2: booking a free seat confirms it and shows it as taken."""
+        self.client.force_login(self.sam)
+        response = self.client.post(self.url, {"seat": self.a1.pk}, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertContains(response, "You booked seat A1 for Dune.")
+        self.assertContains(response, 'aria-label="Seat A1, booked" disabled')
+        self.a1.refresh_from_db()
+        self.assertTrue(self.a1.is_booked)
+
+    def test_page_booking_user_is_request_user(self):
+        """AC-5: the booking belongs to the signed-in user, whatever the form says."""
+        self.client.force_login(self.sam)
+        self.client.post(self.url, {"seat": self.a1.pk, "user": self.alex.pk})
+        self.assertEqual(Booking.objects.get(seat=self.a1).user, self.sam)
+
+    def test_book_taken_seat_via_page_shows_error(self):
+        """AC-3: a taken seat shows the reason and saves nothing."""
+        self.client.force_login(self.sam)
+        response = self.client.post(self.url, {"seat": self.a2.pk}, follow=True)
+        self.assertContains(response, "Seat A2 for Dune is already booked.")
+        self.assertEqual(Booking.objects.get(seat=self.a2).user, self.alex)
+
+    def test_book_other_movies_seat_via_page_refused(self):
+        """AC-9: a seat id from another movie, or none at all, books nothing."""
+        up = make_movie("Up", date(2009, 5, 29), 96)
+        self.client.force_login(self.sam)
+        for data in ({"seat": seat(up, "A1").pk}, {"seat": "9999"}, {"seat": "x"}, {}):
+            with self.subTest(data=data):
+                response = self.client.post(self.url, data, follow=True)
+                self.assertContains(response, "That seat does not exist for this movie.")
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_seat_page_prompts_sign_in_when_signed_out(self):
+        """AC-8: signed out, the seats are visible but booking asks you to sign in."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sign in to book a seat")
+        self.assertContains(response, f'{reverse("login")}?next={self.url}')
+        self.assertNotContains(response, 'name="seat"')
+
+    def test_anonymous_page_booking_redirects_to_login(self):
+        """AC-8: a signed-out POST goes to sign-in, then back here, and books nothing."""
+        response = self.client.post(self.url, {"seat": self.a1.pk})
+        self.assertRedirects(
+            response, f'{reverse("login")}?next={self.url}', fetch_redirect_response=False
+        )
+        self.assertFalse(Booking.objects.filter(seat=self.a1).exists())
+
+
+class SameRulesEverywhereTests(APITestCase):
+    """002 AC-6 — the page and /api/seats/ share one set of booking rules."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.a1 = seat(self.dune, "A1")
+        self.page_url = reverse("book_seat", args=[self.dune.pk])
+        self.api_url = reverse("seat-book", args=[self.a1.pk])
+
+    def test_seat_booked_via_page_refused_via_seats_api(self):
+        """AC-6: a seat booked on the page is 409 through the API."""
+        self.client.force_login(make_user("sam"))
+        self.client.post(self.page_url, {"seat": self.a1.pk})
+        self.client.force_authenticate(make_user("alex"))
+        response = self.client.post(self.api_url)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_seat_booked_via_seats_api_refused_via_page(self):
+        """AC-6: a seat booked through the API is refused on the page."""
+        self.client.force_authenticate(make_user("sam"))
+        self.assertEqual(self.client.post(self.api_url).status_code, status.HTTP_201_CREATED)
+        self.client.force_authenticate(None)
+        self.client.force_login(make_user("alex"))
+        response = self.client.post(self.page_url, {"seat": self.a1.pk}, follow=True)
+        self.assertContains(response, "Seat A1 for Dune is already booked.")
+        self.assertEqual(Booking.objects.get(seat=self.a1).user.username, "sam")

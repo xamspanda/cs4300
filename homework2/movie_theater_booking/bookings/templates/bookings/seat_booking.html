@@ -1,0 +1,79 @@
+{% extends 'bookings/base.html' %}
+{% block title %}Book a seat · {{ movie.title }}{% endblock %}
+{% block content %}
+<style>
+  .screen { height: .5rem; border-radius: 50% / 100% 100% 0 0; background: linear-gradient(90deg, transparent, #ffc107, transparent);
+            box-shadow: 0 .5rem 1.5rem rgba(255, 193, 7, .35); }
+  .seat { width: 2.75rem; padding-left: 0; padding-right: 0; font-variant-numeric: tabular-nums; }
+  .row-label { width: 1.5rem; }
+</style>
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'movie_list' %}">Movies</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ movie.title }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-1">
+  <h1 class="h2 mb-0">{{ movie.title }}</h1>
+  <span class="badge text-bg-secondary fs-6">{{ available_count }} of {{ seats|length }} seats available</span>
+</div>
+<p class="text-body-secondary">
+  <i class="bi bi-calendar-event"></i> {{ movie.release_date|date:"F j, Y" }}
+  <span class="mx-1">·</span> <i class="bi bi-clock"></i> {{ movie.duration_display }}
+</p>
+
+{% if not user.is_authenticated %}
+<div class="alert alert-info d-flex align-items-center gap-2">
+  <i class="bi bi-person-lock"></i>
+  <div>
+    <a class="alert-link" href="{% url 'login' %}?next={{ request.path|urlencode }}">Sign in to book a seat</a>
+    or <a class="alert-link" href="{% url 'signup' %}">create an account</a>.
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <div class="mx-auto" style="max-width: 34rem;">
+      <div class="screen mb-1"></div>
+      <p class="text-center small text-body-secondary text-uppercase mb-4">Screen</p>
+
+      <form method="post" action="{% url 'book_seat' movie.id %}">
+        {% csrf_token %}
+        {% for row, row_seats in rows %}
+        <div class="d-flex align-items-center justify-content-center gap-1 gap-sm-2 mb-2">
+          <span class="row-label text-body-secondary fw-semibold">{{ row }}</span>
+          {% for seat in row_seats %}
+            {% if user.is_authenticated %}
+              {% if seat.is_booked %}
+              <button type="button" class="btn btn-sm seat {% if seat.pk in my_seat_ids %}btn-warning{% else %}btn-secondary{% endif %}"
+                      title="{% if seat.pk in my_seat_ids %}Your seat{% else %}Booked{% endif %}"
+                      aria-label="Seat {{ seat.seat_number }}, booked" disabled>{{ seat.seat_number }}</button>
+              {% else %}
+              <button type="submit" name="seat" value="{{ seat.pk }}" class="btn btn-sm btn-outline-success seat"
+                      title="Book seat {{ seat.seat_number }}"
+                      aria-label="Seat {{ seat.seat_number }}, available">{{ seat.seat_number }}</button>
+              {% endif %}
+            {% else %}
+              <span class="btn btn-sm seat pe-none {% if seat.is_booked %}btn-secondary opacity-50{% else %}btn-outline-success{% endif %}"
+                    aria-label="Seat {{ seat.seat_number }}, {% if seat.is_booked %}booked{% else %}available{% endif %}">{{ seat.seat_number }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </form>
+
+      <div class="d-flex flex-wrap justify-content-center gap-3 small text-body-secondary mt-4">
+        <span><span class="btn btn-sm btn-outline-success seat pe-none">&nbsp;</span> Available</span>
+        <span><span class="btn btn-sm btn-secondary seat pe-none">&nbsp;</span> Booked</span>
+        {% if user.is_authenticated %}<span><span class="btn btn-sm btn-warning seat pe-none">&nbsp;</span> Your seat</span>{% endif %}
+      </div>
+      {% if user.is_authenticated %}
+      <p class="text-center small text-body-secondary mt-3 mb-0">Click a green seat to book it.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
