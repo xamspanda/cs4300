@@ -28,6 +28,22 @@ In DevEdu, click the **app** button next to the editor
 (`https://app-<container>-<section>.devedu.io/`). Locally, open <http://localhost:3000/>.
 Activate the virtual environment again in each new terminal.
 
+**Optional, with [uv](https://docs.astral.sh/uv/):** uv is a faster drop-in for the `venv` and
+`pip` steps and uses the same `requirements.txt`. Replace the `python3 -m venv …` and
+`pip install …` lines as shown. `myenv` must be activated before `uv pip install`, because uv
+only finds environments named `.venv` by itself:
+
+```bash
+cd homework2
+uv venv myenv --system-site-packages
+source myenv/bin/activate
+cd movie_theater_booking
+uv pip install -r requirements.txt
+```
+
+The `python manage.py …` steps are the same. Render's build still
+uses `pip` (`build.sh`).
+
 ## Tests
 
 From `homework2/movie_theater_booking/` with the virtual environment active:
