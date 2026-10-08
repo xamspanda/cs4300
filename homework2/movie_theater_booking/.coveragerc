@@ -1,0 +1,9 @@
+[run]
+source = bookings
+# Measure the app's own code, not the tests or generated migrations.
+omit =
+    bookings/tests.py
+    bookings/migrations/*
+
+[report]
+show_missing = True

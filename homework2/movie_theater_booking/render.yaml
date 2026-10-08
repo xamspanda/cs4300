@@ -1,0 +1,15 @@
+# Render Blueprint for this app. The repository root is cs4300/, so the
+# service's rootDir points at this folder. See README.md "Deploying to Render".
+services:
+  - type: web
+    name: movie-theater-booking
+    runtime: python
+    plan: free
+    rootDir: homework2/movie_theater_booking
+    buildCommand: ./build.sh
+    startCommand: gunicorn movie_theater_booking.wsgi:application
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.13.7

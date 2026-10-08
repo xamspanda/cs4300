@@ -5,9 +5,10 @@ acceptance criterion (AC-#) it proves in its docstring.
 """
 
 from datetime import date
-from unittest import mock
+from io import StringIO
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
@@ -938,3 +939,18 @@ class AdminDeleteBookingTests(TestCase):
         )
         self.assertFalse(Booking.objects.exists())
         self.assertFalse(self.dune.seats.filter(booking_status="booked").exists())
+
+
+class SeedMoviesCommandTests(TestCase):
+    """The seed_movies command used for demos and the Render build."""
+
+    def test_seed_movies_is_idempotent(self):
+        """Running it twice adds the sample movies once, each with 40 seats."""
+        call_command("seed_movies", stdout=StringIO())
+        count = Movie.objects.count()
+        self.assertGreaterEqual(count, 3)
+        out = StringIO()
+        call_command("seed_movies", stdout=out)
+        self.assertEqual(Movie.objects.count(), count)
+        self.assertIn("0 added", out.getvalue())
+        self.assertEqual(Seat.objects.count(), count * 40)
