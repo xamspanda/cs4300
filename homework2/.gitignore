@@ -1,0 +1,6 @@
+# Virtual environment from HW2 setup (python3 -m venv myenv)
+myenv/
+
+# Local database and collected static files
+movie_theater_booking/db.sqlite3
+movie_theater_booking/staticfiles/
