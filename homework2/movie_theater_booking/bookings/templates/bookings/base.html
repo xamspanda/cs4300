@@ -30,6 +30,10 @@
             <a class="nav-link {% if request.resolver_match.url_name == 'movie_list' %}active{% endif %}"
                href="{% url 'movie_list' %}">Movies</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'booking_history' %}active{% endif %}"
+               href="{% url 'booking_history' %}">My Bookings</a>
+          </li>
         </ul>
         <ul class="navbar-nav align-items-md-center gap-md-2">
           {% if user.is_authenticated %}

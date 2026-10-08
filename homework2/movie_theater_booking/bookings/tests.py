@@ -11,6 +11,8 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateformat import format as format_date
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -810,3 +812,129 @@ class BookingApiTests(APITestCase):
                 self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.sam_booking.refresh_from_db()
         self.assertEqual(self.sam_booking.seat.seat_number, "A1")
+
+
+class BookingHistoryPageTests(TestCase):
+    """003 — My Bookings page (AC-1, AC-2, AC-4 to AC-6, AC-8, AC-9)."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.up = make_movie("Up", date(2009, 5, 29), 96)
+        self.sam = make_user("sam")
+        self.alex = make_user("alex")
+        self.url = reverse("booking_history")
+
+    def test_booking_history_shows_movie_seat_and_date(self):
+        """AC-1: each booking shows its movie, seat and booking date."""
+        booking = services.book_seat(self.sam, seat(self.dune, "A1"))
+        self.client.force_login(self.sam)
+        response = self.client.get(self.url)
+        self.assertContains(response, "Dune")
+        self.assertContains(response, "A1")
+        local_date = timezone.localtime(booking.booking_date)
+        self.assertContains(response, format_date(local_date, "F j, Y"))
+
+    def test_booking_history_page_only_shows_own(self):
+        """AC-2: Alex's bookings never appear on Sam's page."""
+        services.book_seat(self.sam, seat(self.dune, "A1"))
+        services.book_seat(self.alex, seat(self.up, "C7"))
+        self.client.force_login(self.sam)
+        response = self.client.get(self.url)
+        self.assertEqual([b.user for b in response.context["bookings"]], [self.sam])
+        self.assertNotContains(response, "C7")
+
+    def test_bookings_newest_first_on_page(self):
+        """AC-8: the newest booking is listed first."""
+        services.book_seat(self.sam, seat(self.dune, "A1"))
+        services.book_seat(self.sam, seat(self.up, "B2"))
+        self.client.force_login(self.sam)
+        titles = [b.movie.title for b in self.client.get(self.url).context["bookings"]]
+        self.assertEqual(titles, ["Up", "Dune"])
+
+    def test_booking_history_uses_base_template(self):
+        """AC-4: the page extends base.html."""
+        self.client.force_login(self.sam)
+        response = self.client.get(self.url)
+        self.assertTemplateUsed(response, "bookings/booking_history.html")
+        self.assertTemplateUsed(response, "bookings/base.html")
+
+    def test_navbar_links_to_movies_and_my_bookings(self):
+        """AC-4: the navbar links to Movies and My Bookings."""
+        self.client.force_login(self.sam)
+        response = self.client.get(reverse("movie_list"))
+        self.assertContains(response, f'href="{reverse("movie_list")}"')
+        self.assertContains(response, f'href="{self.url}"')
+        self.assertContains(response, "My Bookings")
+
+    def test_booking_history_empty_state(self):
+        """AC-5: no bookings shows a message and a link to the movies."""
+        self.client.force_login(self.sam)
+        response = self.client.get(self.url)
+        self.assertContains(response, "You have no bookings yet.")
+        self.assertContains(response, f'href="{reverse("movie_list")}"')
+
+    def test_booking_history_requires_sign_in(self):
+        """AC-6: signed out, the page sends you to sign in and then back."""
+        response = self.client.get(self.url)
+        self.assertRedirects(
+            response, f'{reverse("login")}?next={self.url}', fetch_redirect_response=False
+        )
+
+    def test_cancel_booking_via_page(self):
+        """AC-9: Cancel removes the booking, frees the seat and confirms."""
+        booking = services.book_seat(self.sam, seat(self.dune, "A1"))
+        self.client.force_login(self.sam)
+        cancel_url = reverse("cancel_booking", args=[booking.pk])
+        self.assertContains(self.client.get(self.url), f'action="{cancel_url}"')
+        response = self.client.post(cancel_url, follow=True)
+        self.assertRedirects(response, self.url)
+        self.assertContains(response, "Cancelled your booking of seat A1 for Dune.")
+        self.assertContains(response, "You have no bookings yet.")
+        self.assertFalse(seat(self.dune, "A1").is_booked)
+
+    def test_cannot_cancel_another_users_booking_via_page(self):
+        """AC-9: cancelling Alex's booking is 404 and leaves it alone."""
+        booking = services.book_seat(self.alex, seat(self.dune, "A1"))
+        self.client.force_login(self.sam)
+        response = self.client.post(reverse("cancel_booking", args=[booking.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Booking.objects.filter(pk=booking.pk).exists())
+
+    def test_cancel_needs_post_and_sign_in(self):
+        """AC-9 / plan §6: a GET can't cancel, and signed-out users go to sign in."""
+        booking = services.book_seat(self.sam, seat(self.dune, "A1"))
+        cancel_url = reverse("cancel_booking", args=[booking.pk])
+        response = self.client.post(cancel_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+        self.client.force_login(self.sam)
+        self.assertEqual(self.client.get(cancel_url).status_code, 405)
+        self.assertTrue(Booking.objects.filter(pk=booking.pk).exists())
+
+
+class AdminDeleteBookingTests(TestCase):
+    """003 T8 / 002 plan §6 — admin deletes go through cancel_booking."""
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser("admin", "admin@example.com", "pw-admin-123")
+        self.client.force_login(admin_user)
+        self.dune = make_movie("Dune")
+
+    def test_admin_delete_frees_seat(self):
+        """Deleting one booking in the admin site frees its seat."""
+        booking = services.book_seat(make_user("sam"), seat(self.dune, "A1"))
+        url = reverse("admin:bookings_booking_delete", args=[booking.pk])
+        self.client.post(url, {"post": "yes"})
+        self.assertFalse(Booking.objects.exists())
+        self.assertFalse(seat(self.dune, "A1").is_booked)
+
+    def test_admin_bulk_delete_frees_seats(self):
+        """The "delete selected" action frees every seat too."""
+        sam = make_user("sam")
+        bookings = [services.book_seat(sam, seat(self.dune, n)) for n in ("A1", "A2")]
+        self.client.post(
+            reverse("admin:bookings_booking_changelist"),
+            {"action": "delete_selected", "_selected_action": [b.pk for b in bookings], "post": "yes"},
+        )
+        self.assertFalse(Booking.objects.exists())
+        self.assertFalse(self.dune.seats.filter(booking_status="booked").exists())

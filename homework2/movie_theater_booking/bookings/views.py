@@ -5,10 +5,11 @@ from operator import attrgetter
 
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -140,6 +141,32 @@ def seat_booking(request, movie_id):
         "my_seat_ids": my_seat_ids,
     }
     return render(request, "bookings/seat_booking.html", context)
+
+
+@login_required
+def booking_history(request):
+    """My Bookings: the signed-in user's bookings, newest first (003)."""
+    bookings = request.user.bookings.select_related("movie", "seat")
+    return render(request, "bookings/booking_history.html", {"bookings": bookings})
+
+
+@login_required
+@require_POST
+def cancel_booking(request, booking_id):
+    """Cancel one of the signed-in user's bookings (003 AC-9).
+
+    POST only, so a link or a prefetch can never cancel a booking. Looking the
+    booking up among the user's own makes anyone else's a 404.
+    """
+    booking = get_object_or_404(
+        request.user.bookings.select_related("movie", "seat"), pk=booking_id
+    )
+    services.cancel_booking(booking)
+    messages.success(
+        request,
+        f"Cancelled your booking of seat {booking.seat.seat_number} for {booking.movie}.",
+    )
+    return redirect("booking_history")
 
 
 def _int_or_none(value):

@@ -1,8 +1,10 @@
 """Admin site setup. Bookings are made only through services.book_seat, so the
-admin site can view them but not add them, and a seat's status is read-only."""
+admin site can view them but not add them, a seat's status is read-only, and
+deleting a booking here cancels it through services.cancel_booking."""
 
 from django.contrib import admin
 
+from . import services
 from .models import Booking, Movie, Seat
 
 
@@ -27,3 +29,10 @@ class BookingAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def delete_model(self, request, obj):
+        services.cancel_booking(obj)
+
+    def delete_queryset(self, request, queryset):
+        for booking in queryset:
+            services.cancel_booking(booking)
