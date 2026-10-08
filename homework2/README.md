@@ -175,5 +175,5 @@ See [`movie_theater_booking/AI-USAGE.md`](movie_theater_booking/AI-USAGE.md) for
   README, plus an independent review of the code against the specs.
 - **How I used the output:** I made the design decisions (seats belong to a movie; sign-up and
   sign-in pages; cancellation in My Bookings). I reviewed each commit that was created with
-  AI assistance, and provided feedback when things needed to be changed. I also looked at
-  the tests to see if they were valid and useful.
+  AI assistance, ran the tests and tried the app myself. I also looked at the tests to see if
+  they were valid and useful.

@@ -15,8 +15,8 @@ Keep this log as you go, then copy the summary into your README.
   Render deployment files, the README, and reviewing the code against the specs.
 - **How I used the output:** I made the design decisions (seats belong to a movie; sign-up and
   sign-in pages; users can cancel their own bookings in My Bookings; one commit per task).
-  I reviewed each commit that was created with AI assistance, and provided feedback when
-  things needed to be changed. I also looked at the tests to see if they were valid and useful.
+  I reviewed each commit that was created with AI assistance, ran the tests and tried the app
+  myself. I also looked at the tests to see if they were valid and useful.
 
 ## Log
 | Date | Feature / task | What I asked the AI | What I kept, changed or rejected |
