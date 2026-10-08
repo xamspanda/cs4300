@@ -7,12 +7,27 @@ Keep this log as you go, then copy the summary into your README.
 > 📖 **Book:** "Record where you used AI and how you verified it", [§13.2.10](https://www.swebook.org/chapters/13-ai-across-the-lifecycle/index.html#13210-the-team-project-appendix-a).
 
 ## Summary (paste into README)
-- **Tool:** Codex (UCCS), model: <model>
-- **Used for:** <e.g., reviewing my specs, drafting plans, test-first implementation of tasks>
-- **How I used the output:** <e.g., I wrote all specs; I reviewed and edited every plan; I read,
-  ran and committed each task's code myself; I rewrote X by hand>
+- **Tool:** Claude Code (Anthropic), model Claude Opus 5.5 (`claude-opus-5-5`), used in place
+  of Codex with this template's `AGENTS.md` rules; one independent review pass by a Claude
+  Sonnet 5.5 subagent that did not write the code (prompt 5).
+- **Used for:** finishing the specs for 002 and 003 from my design decisions, drafting all
+  three plans and task lists, test-first implementation of every task, the seed command,
+  Render deployment files, the README, and reviewing the code against the specs.
+- **How I used the output:** I made the design decisions (seats belong to a movie; sign-up and
+  sign-in pages; users can cancel their own bookings in My Bookings; one commit per task).
+  _TODO (Laura): add how you reviewed it, e.g. "I read every spec, plan and commit diff, ran
+  the tests and the app myself, and changed …"._
 
 ## Log
-| Date | Feature / task | What I asked Codex | What I kept, changed or rejected |
+| Date | Feature / task | What I asked the AI | What I kept, changed or rejected |
 |---|---|---|---|
-|  |  |  |  |
+| 2026-10-08 | Setup | Read the HW2 PDF and the SDD template; create the Django project, `bookings` app and venv; copy the template in | Kept. Django pinned to 5.2 LTS (not 6.x) so it runs on older DevEdu Python versions; secrets read from environment variables |
+| 2026-10-08 | Decisions | AI asked me four questions before writing 002/003 specs | I chose: seats per movie, login + sign-up pages, cancellation allowed, AI commits per task and I push |
+| 2026-10-08 | 001 spec/plan/tasks | Resolve the open question; adjust for a public deployment | Kept the example's field rules; added AC-10 (anonymous clients can read but not change movies, 401) |
+| 2026-10-08 | 002 spec/plan/tasks | Finish the spec from my decisions | Seat gets a movie FK; Booking row is the source of truth with a DB unique constraint on seat; 409 for a taken seat; seats auto-created A1–E8; AC-8 to AC-14 added |
+| 2026-10-08 | 003 spec/plan/tasks | Finish the spec | 404 (not 403) for others' bookings; cancel via page + `DELETE`; no edits (405); newest first; AC-5 to AC-10 added |
+| 2026-10-08 | 001 T1–T16 | Implement test first | Movie model, CRUD API, Bootstrap base + movie list, Behave. T7–T10 were verification tests (ModelViewSet already did it) |
+| 2026-10-08 | 002 T1–T16 | Implement test first | Seat/Booking, `services.book_seat`, seats API, auth pages, seat grid page, admin, Behave |
+| 2026-10-08 | 003 T1–T9 | Implement test first | `cancel_booking`, `BookingViewSet`, My Bookings page, admin delete through the service, Behave |
+| 2026-10-08 | Deploy | Seed command, `build.sh`, `render.yaml`, README | Smoke-tested production settings locally with gunicorn; Render deploy itself must be done from my Render account |
+| 2026-10-08 | Review (prompt 5) | Fresh subagent reviewed every AC against the code and tests | See the follow-up commits after the review |
