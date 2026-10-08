@@ -4,9 +4,9 @@ A movie theater booking app with a REST API (Django REST Framework) and a
 Bootstrap user interface (Django templates). Users browse movies, book seats,
 check their booking history and cancel bookings, through the web pages or the API.
 
-**Render URL:** https://cs4300-o29m.onrender.com/ (free plan: the first request after idling can take about a minute)
+**Render URL:** <https://cs4300-o29m.onrender.com/> (free plan: the first request after idling can take about a minute)
 
-**GitHub:** https://github.com/xamspanda/cs4300/tree/main/homework2
+**GitHub:** <https://github.com/xamspanda/cs4300/tree/main/homework2>
 
 ## Setup and running (DevEdu or any machine)
 
@@ -25,7 +25,7 @@ python manage.py runserver 0.0.0.0:3000
 ```
 
 In DevEdu, click the **app** button next to the editor
-(`https://app-<container>-<section>.devedu.io/`). Locally, open http://localhost:3000/.
+(`https://app-<container>-<section>.devedu.io/`). Locally, open <http://localhost:3000/>.
 Activate the virtual environment again in each new terminal.
 
 ## Tests
@@ -147,7 +147,7 @@ homework2/
    `python -c "import secrets; print(secrets.token_urlsafe(50))"`. Render sets `RENDER` and
    `RENDER_EXTERNAL_HOSTNAME` itself; the settings use them to turn off `DEBUG`, allow the host
    and trust its HTTPS origin.
-4. Deploy. This app is live at https://cs4300-o29m.onrender.com/.
+4. Deploy. This app is live at <https://cs4300-o29m.onrender.com/>.
 
 (`render.yaml` describes the same service as a Blueprint, if you prefer that route.)
 
@@ -174,5 +174,6 @@ See [`movie_theater_booking/AI-USAGE.md`](movie_theater_booking/AI-USAGE.md) for
   the code and tests one task at a time (test first), the seed command, deployment files and this
   README, plus an independent review of the code against the specs.
 - **How I used the output:** I made the design decisions (seats belong to a movie; sign-up and
-  sign-in pages; cancellation in My Bookings). _TODO (Laura): describe your review, e.g. "I read
-  every spec, plan and commit, ran the tests myself, and changed …"._
+  sign-in pages; cancellation in My Bookings). I reviewed each commit that was created with
+  AI assistance, and provided feedback when things needed to be changed. I also looked at
+  the tests to see if they were valid and useful.
