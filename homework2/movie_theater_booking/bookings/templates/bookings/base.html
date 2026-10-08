@@ -31,11 +31,31 @@
                href="{% url 'movie_list' %}">Movies</a>
           </li>
         </ul>
+        <ul class="navbar-nav align-items-md-center gap-md-2">
+          {% if user.is_authenticated %}
+          <li class="nav-item"><span class="navbar-text"><i class="bi bi-person-circle"></i> {{ user.username }}</span></li>
+          <li class="nav-item">
+            <form method="post" action="{% url 'logout' %}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-light">Sign out</button>
+            </form>
+          </li>
+          {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'login' %}{% if request.resolver_match.url_name not in 'login signup' %}?next={{ request.path|urlencode }}{% endif %}">Sign in</a></li>
+          <li class="nav-item"><a class="btn btn-sm btn-warning" href="{% url 'signup' %}">Sign up</a></li>
+          {% endif %}
+        </ul>
       </div>
     </div>
   </nav>
 
   <main class="container py-4 flex-grow-1">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
     {% block content %}{% endblock %}
   </main>
 

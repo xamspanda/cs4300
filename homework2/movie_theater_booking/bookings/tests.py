@@ -451,3 +451,65 @@ class SeatApiTests(APITestCase):
         response = self.client.post(self.book_url(self.a1))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(Booking.objects.filter(seat=self.a1).exists())
+
+
+class AccountPageTests(TestCase):
+    """002 AC-14 — Sign up, sign in and sign out."""
+
+    password = "Popcorn-and-Soda-42"
+
+    def signup(self, username, password1=None, password2=None):
+        return self.client.post(
+            reverse("signup"),
+            {
+                "username": username,
+                "password1": password1 or self.password,
+                "password2": password2 or self.password,
+            },
+        )
+
+    def test_signup_signs_in_and_redirects(self):
+        """AC-14: a new account is signed in and returned to the movie list."""
+        response = self.signup("taylor")
+        self.assertRedirects(response, reverse("movie_list"))
+        self.assertTrue(User.objects.filter(username="taylor").exists())
+        page = self.client.get(reverse("movie_list"))
+        self.assertTrue(page.wsgi_request.user.is_authenticated)
+        self.assertContains(page, "taylor")
+        self.assertContains(page, "Sign out")
+
+    def test_signup_page_renders(self):
+        """AC-14: the sign-up form is shown with the site layout."""
+        response = self.client.get(reverse("signup"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "bookings/base.html")
+
+    def test_signup_rejects_taken_username_and_mismatch(self):
+        """AC-14: a taken username or mismatched passwords show an error and make no account."""
+        make_user("sam")
+        response = self.signup("sam")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already exists")
+        response = self.signup("riley", password2="Something-Else-99")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "didn’t match")
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_signed_in_user_visiting_signup_is_redirected(self):
+        """AC-14: there's no reason to sign up while signed in."""
+        self.client.force_login(make_user("sam"))
+        self.assertRedirects(self.client.get(reverse("signup")), reverse("movie_list"))
+
+    def test_sign_out_and_in_again(self):
+        """AC-14: sign out, then sign in with the same username and password."""
+        self.signup("taylor")
+        response = self.client.post(reverse("logout"))
+        self.assertRedirects(response, reverse("movie_list"))
+        page = self.client.get(reverse("movie_list"))
+        self.assertFalse(page.wsgi_request.user.is_authenticated)
+        self.assertContains(page, "Sign in")
+        self.assertEqual(self.client.get(reverse("login")).status_code, 200)
+        response = self.client.post(
+            reverse("login"), {"username": "taylor", "password": self.password}
+        )
+        self.assertRedirects(response, reverse("movie_list"))

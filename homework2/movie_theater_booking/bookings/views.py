@@ -1,6 +1,8 @@
 """API viewsets and HTML page views for the bookings app."""
 
-from django.shortcuts import render
+from django.contrib.auth import login
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import redirect, render
 from rest_framework import exceptions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -64,3 +66,14 @@ class SeatViewSet(viewsets.ReadOnlyModelViewSet):
 def movie_list(request):
     """The home page: every movie with a Book Now button (001 AC-1 to AC-3)."""
     return render(request, "bookings/movie_list.html", {"movies": Movie.objects.all()})
+
+
+def signup(request):
+    """Create an account and sign straight in (002 AC-14)."""
+    if request.user.is_authenticated:
+        return redirect("movie_list")
+    form = UserCreationForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        login(request, form.save())
+        return redirect("movie_list")
+    return render(request, "registration/signup.html", {"form": form})
