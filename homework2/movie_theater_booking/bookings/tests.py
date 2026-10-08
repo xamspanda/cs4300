@@ -633,3 +633,37 @@ class SameRulesEverywhereTests(APITestCase):
         response = self.client.post(self.page_url, {"seat": self.a1.pk}, follow=True)
         self.assertContains(response, "Seat A1 for Dune is already booked.")
         self.assertEqual(Booking.objects.get(seat=self.a1).user.username, "sam")
+
+
+class AdminTests(TestCase):
+    """002 plan §6 — the admin site can't put a seat's status out of step."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin", "admin@example.com", "pw-admin-123")
+        self.client.force_login(self.admin)
+        self.dune = make_movie("Dune")
+        self.booking = services.book_seat(make_user("sam"), seat(self.dune, "A1"))
+
+    def test_admin_pages_load(self):
+        """Every model's list and change page renders for staff."""
+        for name, obj in (("movie", self.dune), ("seat", self.booking.seat), ("booking", self.booking)):
+            with self.subTest(model=name):
+                changelist = reverse(f"admin:bookings_{name}_changelist")
+                self.assertEqual(self.client.get(changelist).status_code, 200)
+                change = reverse(f"admin:bookings_{name}_change", args=[obj.pk])
+                self.assertEqual(self.client.get(change).status_code, 200)
+
+    def test_admin_cannot_add_bookings_or_edit_seat_status(self):
+        """Bookings are made only through book_seat; seat status is read-only."""
+        response = self.client.get(reverse("admin:bookings_booking_add"))
+        self.assertEqual(response.status_code, 403)
+        change = self.client.get(reverse("admin:bookings_seat_change", args=[self.booking.seat.pk]))
+        self.assertNotIn("booking_status", change.context["adminform"].form.fields)
+
+    def test_movie_created_in_admin_gets_seats(self):
+        """AC-13: a movie added through the admin site comes with 40 seats."""
+        self.client.post(
+            reverse("admin:bookings_movie_add"),
+            {"title": "Up", "description": "", "release_date": "2009-05-29", "duration": 96},
+        )
+        self.assertEqual(Movie.objects.get(title="Up").seats.count(), 40)

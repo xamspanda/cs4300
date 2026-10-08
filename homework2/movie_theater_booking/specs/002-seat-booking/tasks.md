@@ -21,8 +21,8 @@
 - [x] **T12** — Book through the page (POST) · tests: `test_book_seat_via_page`, `test_page_booking_user_is_request_user`, `test_book_taken_seat_via_page_shows_error`, `test_book_other_movies_seat_via_page_refused` · covers: AC-2, AC-3, AC-5, AC-9
 - [x] **T13** — Signed-out page: sign-in prompt; POST redirects to login · tests: `test_seat_page_prompts_sign_in_when_signed_out`, `test_anonymous_page_booking_redirects_to_login` · covers: AC-8
 - [x] **T14** — Same rules everywhere · tests: `test_seat_booked_via_page_refused_via_seats_api`, `test_seat_booked_via_seats_api_refused_via_page` · covers: AC-6
-- [ ] **T15** — Admin: Movie, Seat (status read-only), Booking (no add) · covers: plan §6
-- [ ] **T16** — Behave: "See which seats are free", "Book an available seat", "Seat already taken", "Must sign in to book" · covers: AC-1, AC-2, AC-3, AC-8
+- [x] **T15** — Admin: Movie, Seat (status read-only), Booking (no add) · covers: plan §6
+- [x] **T16** — Behave: "See which seats are free", "Book an available seat", "Seat already taken", "Must sign in to book" · covers: AC-1, AC-2, AC-3, AC-8
 
 ## Done when
 - [ ] Every acceptance criterion in `spec.md` has a passing test
