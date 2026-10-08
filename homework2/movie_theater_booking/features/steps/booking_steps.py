@@ -3,6 +3,8 @@
 from behave import given, then, when
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateformat import format as format_date
 
 from bookings import services
 from bookings.models import Booking, Movie, Seat
@@ -80,3 +82,23 @@ def step_seat_not_booked(context, number, title):
 @then("I am sent to the sign-in page")
 def step_sent_to_sign_in(context):
     context.test.assertEqual(context.response.resolver_match.url_name, "login")
+
+
+@when("I open My Bookings")
+def step_open_my_bookings(context):
+    context.response = context.test.client.get(reverse("booking_history"))
+
+
+@when('I cancel my booking of seat "{number}" for "{title}"')
+def step_cancel_booking(context, number, title):
+    booking = Booking.objects.get(seat=get_seat(title, number))
+    cancel_url = reverse("cancel_booking", args=[booking.pk])
+    # The Cancel button on the page must point at this booking.
+    context.test.assertContains(context.response, f'action="{cancel_url}"')
+    context.response = context.test.client.post(cancel_url, follow=True)
+
+
+@then("I see today's date")
+def step_see_today(context):
+    today = timezone.localdate()
+    context.test.assertContains(context.response, format_date(today, "F j, Y"))
