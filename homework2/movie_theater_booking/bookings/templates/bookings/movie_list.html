@@ -1,0 +1,36 @@
+{% extends 'bookings/base.html' %}
+{% block title %}Movie List{% endblock %}
+{% block content %}
+<div class="d-flex align-items-baseline justify-content-between mb-4">
+  <h1 class="h2 mb-0">Available Movies</h1>
+  <span class="text-body-secondary">{{ movies|length }} showing</span>
+</div>
+
+{% if movies %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+  {% for movie in movies %}
+  <div class="col">
+    <div class="card h-100 movie-card">
+      <div class="card-body d-flex flex-column">
+        <h2 class="h5 card-title">{{ movie.title }}</h2>
+        <p class="small text-body-secondary mb-2">
+          <i class="bi bi-calendar-event"></i> {{ movie.release_date|date:"F j, Y" }}
+          <span class="mx-1">·</span>
+          <i class="bi bi-clock"></i> {{ movie.duration_display }}
+        </p>
+        <p class="card-text flex-grow-1">{{ movie.description|default:"No description yet." }}</p>
+        <button type="button" class="btn btn-warning mt-2 align-self-start" disabled
+                title="Seat booking arrives in feature 002">Book Now</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 border rounded-3 bg-body-tertiary">
+  <i class="bi bi-camera-reels display-4 text-body-secondary"></i>
+  <p class="lead mt-3 mb-0">No movies are showing right now.</p>
+  <p class="text-body-secondary">Check back soon.</p>
+</div>
+{% endif %}
+{% endblock %}

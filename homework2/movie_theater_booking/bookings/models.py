@@ -20,3 +20,12 @@ class Movie(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def duration_display(self):
+        """Duration as hours and minutes, e.g. 155 -> "2h 35m" (001 AC-3)."""
+        hours, minutes = divmod(self.duration, 60)
+        parts = [f"{hours}h"] if hours else []
+        if minutes or not hours:
+            parts.append(f"{minutes}m")
+        return " ".join(parts)

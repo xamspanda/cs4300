@@ -164,3 +164,47 @@ class MovieApiTests(APITestCase):
         dune.refresh_from_db()
         self.assertEqual(dune.title, "Dune")
         self.assertEqual(Movie.objects.count(), 1)
+
+
+class MovieListPageTests(TestCase):
+    """001 — The movie list page (AC-1 to AC-3, AC-9)."""
+
+    def test_movie_list_uses_base_template(self):
+        """AC-9: the page extends base.html (Bootstrap) with a Movies link."""
+        response = self.client.get(reverse("movie_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "bookings/movie_list.html")
+        self.assertTemplateUsed(response, "bookings/base.html")
+        self.assertContains(response, "bootstrap")
+        self.assertContains(response, f'href="{reverse("movie_list")}"')
+
+    def test_movie_list_shows_titles_descriptions_and_book_now(self):
+        """AC-1: every movie appears with its description and a Book Now button."""
+        make_movie("Dune", description="Desert planet.")
+        make_movie("Up", date(2009, 5, 29), 96, description="Balloon house.")
+        response = self.client.get(reverse("movie_list"))
+        for text in ("Dune", "Desert planet.", "Up", "Balloon house."):
+            self.assertContains(response, text)
+        self.assertContains(response, "Book Now", count=2)
+
+    def test_movie_list_shows_release_date_and_duration(self):
+        """AC-3: release date and duration are readable."""
+        make_movie("Dune", date(2021, 10, 22), 155)
+        response = self.client.get(reverse("movie_list"))
+        self.assertContains(response, "October 22, 2021")
+        self.assertContains(response, "2h 35m")
+
+    def test_movie_list_empty_state(self):
+        """AC-2: with no movies, the page says so instead of showing an empty list."""
+        response = self.client.get(reverse("movie_list"))
+        self.assertContains(response, "No movies are showing right now")
+
+
+class MovieDurationDisplayTests(TestCase):
+    """001 AC-3 — duration_display, including boundaries."""
+
+    def test_duration_display(self):
+        cases = {155: "2h 35m", 120: "2h", 45: "45m", 1: "1m", 60: "1h"}
+        for minutes, expected in cases.items():
+            with self.subTest(minutes=minutes):
+                self.assertEqual(Movie(duration=minutes).duration_display, expected)

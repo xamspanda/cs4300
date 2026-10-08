@@ -9,5 +9,6 @@ router = DefaultRouter()
 router.register("movies", views.MovieViewSet)
 
 urlpatterns = [
+    path("", views.movie_list, name="movie_list"),
     path("api/", include(router.urls)),
 ]
