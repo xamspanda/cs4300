@@ -27,7 +27,7 @@
 - [x] **T16** — Anonymous `GET` allowed; `POST`/`PATCH`/`DELETE` → 401 · test: `test_anonymous_can_read_but_not_change_movies` · covers: AC-10
 
 ## Done when
-- [ ] Every acceptance criterion in `spec.md` has a passing test
-- [ ] `python manage.py test` and `python manage.py behave` pass
-- [ ] Coverage ≥ 80% for `bookings`
-- [ ] `AI-USAGE.md` updated
+- [x] Every acceptance criterion in `spec.md` has a passing test
+- [x] `python manage.py test` and `python manage.py behave` pass
+- [x] Coverage ≥ 80% for `bookings`
+- [x] `AI-USAGE.md` updated

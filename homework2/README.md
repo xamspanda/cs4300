@@ -40,7 +40,7 @@ coverage run manage.py test && coverage report           # coverage of app code
 
 | Suite | Where | What |
 |---|---|---|
-| Unit + integration | `bookings/tests.py` (96 tests) | Models, the booking service, every API endpoint with status codes and JSON, every page, the admin site and the seed command |
+| Unit + integration | `bookings/tests.py` (98 tests) | Models, the booking service, every API endpoint with status codes and JSON, every page, the admin site and the seed command |
 | BDD | `features/*.feature` (9 scenarios) | Browsing movies, booking seats, booking history and cancelling, through the web pages |
 | Coverage | `.coveragerc` | 100% of `bookings` app code (tests and migrations excluded) |
 
@@ -100,7 +100,12 @@ curl -u sam:password http://localhost:3000/api/bookings/
 - **Privacy.** A booking's user is always the signed-in user (a `user` in the request is ignored),
   and other users' bookings are 404, not 403, so their existence isn't revealed.
 - **Who can change movies.** Any signed-in user can create, edit or delete movies through the
-  API, so a grader can try full CRUD after signing up. A real theater would limit this to staff.
+  API, so a grader can try full CRUD after signing up. Deleting a movie also deletes its seats and
+  everyone's bookings for it, so a real theater would limit this to staff.
+- **Known limits.** Double booking is prevented by the database constraint, but there is no
+  multi-threaded test of two truly simultaneous requests (SQLite's in-memory test database can't
+  share one between threads). On SQLite, `transaction_mode: IMMEDIATE` makes concurrent bookings
+  queue for the write lock. There is no rate limiting on sign-in.
 
 ## Project structure
 

@@ -1,6 +1,6 @@
 # Spec: Booking history
 
-**Status:** Reviewed
+**Status:** Implemented
 **Author:** Laura  **Date:** 2026-10-08
 
 ## 1. Problem

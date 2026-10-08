@@ -91,6 +91,13 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": {
+            # Take the write lock when a transaction starts and wait for it,
+            # so two simultaneous bookings queue up instead of one failing
+            # with "database is locked".
+            "transaction_mode": "IMMEDIATE",
+            "timeout": 20,
+        },
     }
 }
 

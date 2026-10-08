@@ -954,3 +954,131 @@ class SeedMoviesCommandTests(TestCase):
         self.assertEqual(Movie.objects.count(), count)
         self.assertIn("0 added", out.getvalue())
         self.assertEqual(Seat.objects.count(), count * 40)
+
+
+# ---------------------------------------------------------------------------
+# Fixes from the independent review (prompts/05-review.md)
+# ---------------------------------------------------------------------------
+
+
+class MalformedInputTests(APITestCase):
+    """Review fix R1 — odd input is a 400 or a message, never a 500."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.client.force_login(make_user("sam"))
+
+    def test_seat_filters_reject_odd_values_with_400(self):
+        """002 AC-10: unicode digits, huge numbers and unknown statuses are 400."""
+        for params in (
+            {"movie": "²"},
+            {"movie": "99999999999999999999"},
+            {"movie": "-1"},
+            {"booking_status": "bogus"},
+        ):
+            with self.subTest(params=params):
+                response = self.client.get(reverse("seat-list"), params)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_page_booking_with_odd_seat_value_shows_message(self):
+        """002 AC-9: an odd seat value on the page is a message, not a crash."""
+        url = reverse("book_seat", args=[self.dune.pk])
+        for value in ("²", "99999999999999999999"):
+            with self.subTest(value=value):
+                response = self.client.post(url, {"seat": value}, follow=True)
+                self.assertContains(response, "That seat does not exist for this movie.")
+
+    def test_page_booking_for_missing_movie_404(self):
+        """002 AC-9: POST to the seat page of a missing movie is 404."""
+        response = self.client.post(reverse("book_seat", args=[9999]), {"seat": "1"})
+        self.assertEqual(response.status_code, 404)
+
+    def test_movie_duration_over_a_day_400(self):
+        """001 AC-6: a duration over 24 hours (1440 minutes) is rejected."""
+        data = {"title": "Long", "release_date": "2020-01-01", "duration": 1441}
+        response = self.client.post(reverse("movie-list"), data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("duration", response.data)
+
+
+class SeatStatusConsistencyTests(TestCase):
+    """Review fix R2 — a seat's stored status always matches its bookings."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.a1 = seat(self.dune, "A1")
+        self.sam = make_user("sam")
+        self.alex = make_user("alex")
+
+    def test_deleting_a_user_frees_their_seats(self):
+        """Deleting a user (e.g. in the admin) cascades to bookings and frees the seats."""
+        services.book_seat(self.sam, self.a1)
+        self.sam.delete()
+        self.a1.refresh_from_db()
+        self.assertFalse(self.a1.is_booked)
+
+    def test_stale_cancel_does_not_free_a_rebooked_seat(self):
+        """A second (stale) cancel after someone else rebooked leaves the seat booked."""
+        booking = services.book_seat(self.sam, self.a1)
+        services.cancel_booking(booking)
+        services.book_seat(self.alex, self.a1)
+        services.cancel_booking(booking)  # e.g. a double-clicked Cancel
+        self.a1.refresh_from_db()
+        self.assertTrue(self.a1.is_booked)
+        self.assertEqual(Booking.objects.get(seat=self.a1).user, self.alex)
+
+    def test_refused_booking_repairs_a_stale_status(self):
+        """When the database refuses a duplicate, the seat is marked booked again."""
+        Booking.objects.bulk_create([Booking(movie=self.dune, seat=self.a1, user=self.sam)])
+        Seat.objects.filter(pk=self.a1.pk).update(booking_status="available")
+        with self.assertRaises(services.SeatUnavailable):
+            services.book_seat(self.alex, self.a1)
+        self.a1.refresh_from_db()
+        self.assertTrue(self.a1.is_booked)
+
+
+class ReviewGapTests(APITestCase):
+    """Review fix R3 — acceptance criteria the review found only partly tested."""
+
+    def setUp(self):
+        self.sam = make_user("sam")
+        self.client.force_authenticate(self.sam)
+
+    def test_movie_created_via_api_gets_seats(self):
+        """002 AC-13: a movie created through the API has its 40 seats."""
+        data = {"title": "Up", "release_date": "2009-05-29", "duration": 96}
+        response = self.client.post(reverse("movie-list"), data, format="json")
+        self.assertEqual(Movie.objects.get(pk=response.data["id"]).seats.count(), 40)
+
+    def test_booking_date_is_today(self):
+        """002 AC-2: the booking is dated today."""
+        dune = make_movie("Dune")
+        booking = services.book_seat(self.sam, seat(dune, "A1"))
+        self.assertEqual(timezone.localdate(booking.booking_date), timezone.localdate())
+
+    def test_seat_booked_via_page_or_bookings_api_refused_via_bookings_api(self):
+        """003 AC-7: a seat taken through the page, or /api/bookings/ itself, is 409."""
+        dune = make_movie("Dune")
+        a1, a2 = seat(dune, "A1"), seat(dune, "A2")
+        self.client.force_login(self.sam)
+        self.client.post(reverse("book_seat", args=[dune.pk]), {"seat": a1.pk})
+        self.client.post(reverse("booking-list"), {"seat": a2.pk}, format="json")
+        self.client.force_authenticate(make_user("alex"))
+        for taken in (a1, a2):
+            response = self.client.post(reverse("booking-list"), {"seat": taken.pk}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_seat_page_shows_seats_when_signed_out(self):
+        """002 AC-8: signed-out visitors still see every seat and its status."""
+        dune = make_movie("Dune")
+        services.book_seat(self.sam, seat(dune, "A2"))
+        self.client.force_authenticate(None)
+        response = self.client.get(reverse("book_seat", args=[dune.pk]))
+        self.assertContains(response, 'aria-label="Seat A1, available"')
+        self.assertContains(response, 'aria-label="Seat A2, booked"')
+
+    def test_only_login_and_logout_account_pages_exist(self):
+        """002 §6: password reset/change are out of scope, so their pages don't exist."""
+        for path in ("/accounts/password_reset/", "/accounts/password_change/"):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)

@@ -93,8 +93,12 @@ but the assignment's models have no showtimes, and a movie *is* its one screenin
   the request data is **ignored**: the field is read-only, so the client still gets 201 and the
   booking shows their own username.
 - **Keeping status and bookings consistent.** The booking row is the truth; `booking_status` is a
-  copy that only `services.py` writes, in the same transaction as the booking change. The admin
-  site shows it read-only, can't add bookings, and deletes bookings through `cancel_booking` (003).
-  Seats can't be changed through the API (AC-12).
+  copy that only `services.py` writes. `refresh_seat_status(seat_id)` recomputes it from the
+  bookings in the same transaction as every change, and a `post_delete` signal on `Booking` calls it
+  too, so the admin site, `queryset.delete()` and cascades (deleting a user) can't leave a seat stuck
+  as booked. The admin site shows it read-only and can't add bookings. Seats can't be changed
+  through the API (AC-12).
+- **SQLite locking.** `transaction_mode: IMMEDIATE` (settings) makes simultaneous bookings wait for
+  the write lock instead of failing with "database is locked".
 - **SQLite on Render** is wiped on each deploy. Acceptable for a homework demo: the build re-runs
   migrations and the seed command. Noted in the README.

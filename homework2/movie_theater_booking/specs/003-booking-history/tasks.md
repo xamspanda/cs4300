@@ -14,12 +14,12 @@
 - [x] **T5** — `DELETE /api/bookings/<id>/` through `cancel_booking()`; no `PUT`/`PATCH` · tests: `test_cancel_booking_via_api`, `test_cannot_cancel_another_users_booking`, `test_bookings_cannot_be_edited` · covers: AC-9, AC-10
 - [x] **T6** — My Bookings page + navbar link · tests: `test_booking_history_shows_movie_seat_and_date`, `test_booking_history_page_only_shows_own`, `test_booking_history_uses_base_template`, `test_navbar_links_to_movies_and_my_bookings`, `test_booking_history_empty_state`, `test_booking_history_requires_sign_in` · covers: AC-1, AC-2, AC-4, AC-5, AC-6
 - [x] **T7** — Cancel from the page · tests: `test_cancel_booking_via_page`, `test_cannot_cancel_another_users_booking_via_page` · covers: AC-9
-- [x] **T8** — Admin deletes bookings through `cancel_booking()` · test: `test_admin_delete_frees_seat` · covers: 002 plan §6
+- [x] **T8** — Admin deletes free the seat (since the review: via the `post_delete` signal) · test: `test_admin_delete_frees_seat` · covers: 002 plan §6
 - [x] **T9** — Behave: "See my bookings", "No bookings yet", "Cancel a booking" · covers: AC-1, AC-5, AC-9
 
 ## Done when
-- [ ] Every acceptance criterion in `spec.md` has a passing test
-- [ ] Full suite green: `python manage.py test`
-- [ ] `python manage.py behave` passes
-- [ ] Coverage ≥ 80%
-- [ ] `AI-USAGE.md` updated
+- [x] Every acceptance criterion in `spec.md` has a passing test
+- [x] Full suite green: `python manage.py test`
+- [x] `python manage.py behave` passes
+- [x] Coverage ≥ 80%
+- [x] `AI-USAGE.md` updated

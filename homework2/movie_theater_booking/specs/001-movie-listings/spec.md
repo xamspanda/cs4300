@@ -1,6 +1,6 @@
 # Spec: Movie listings
 
-**Status:** Reviewed
+**Status:** Implemented
 **Author:** Laura  **Date:** 2026-10-08
 
 ## 1. Problem
@@ -55,6 +55,7 @@ Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-
 
 **AC-6 (US-3): Reject invalid data**
 - Given I am signed in and have movie data with a missing title, a missing release date, or a duration of 0 or less
+  (or more than 1440, a whole day)
 - When a client sends `POST /api/movies/`
 - Then the response is 400 with an error for that field, and nothing is saved
 
@@ -86,7 +87,7 @@ Each acceptance criterion (AC-#) names the user story it checks, e.g., AC-1 (US-
 | Movie | title | **Required**; at most 200 characters |
 | Movie | description | Optional (may be blank) |
 | Movie | release date | **Required**; a valid date |
-| Movie | duration | **Required**; whole minutes, greater than 0 |
+| Movie | duration | **Required**; whole minutes, from 1 to 1440 (24 hours) |
 
 ## 5. API / UI behavior
 | Action | Input | Success result | Failure result |

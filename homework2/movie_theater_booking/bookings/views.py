@@ -56,11 +56,16 @@ class SeatViewSet(viewsets.ReadOnlyModelViewSet):
         seats = Seat.objects.all()
         movie = self.request.query_params.get("movie")
         if movie is not None:
-            if not movie.isdigit():
+            movie_id = parse_id(movie)
+            if movie_id is None:
                 raise exceptions.ValidationError({"movie": "Must be a whole-number movie id."})
-            seats = seats.filter(movie_id=int(movie))
+            seats = seats.filter(movie_id=movie_id)
         booking_status = self.request.query_params.get("booking_status")
-        if booking_status:
+        if booking_status is not None:
+            if booking_status not in Seat.BookingStatus.values:
+                raise exceptions.ValidationError(
+                    {"booking_status": "Must be one of: available, booked."}
+                )
             seats = seats.filter(booking_status=booking_status)
         return seats
 
@@ -116,7 +121,7 @@ def seat_booking(request, movie_id):
     if request.method == "POST":
         if not request.user.is_authenticated:
             return redirect_to_login(request.path)  # AC-8
-        seat = movie.seats.filter(pk=_int_or_none(request.POST.get("seat"))).first()
+        seat = movie.seats.filter(pk=parse_id(request.POST.get("seat"))).first()
         if seat is None:
             messages.error(request, "That seat does not exist for this movie.")  # AC-9
         else:
@@ -169,9 +174,15 @@ def cancel_booking(request, booking_id):
     return redirect("booking_history")
 
 
-def _int_or_none(value):
-    """Turn form input into an id, or None if it isn't a whole number."""
-    return int(value) if value and value.isdigit() else None
+def parse_id(value):
+    """Turn user input into a database id, or None if it can't be one.
+
+    isascii() rules out characters such as "²" that isdigit() accepts but
+    int() rejects; the length cap keeps the number within a 64-bit id.
+    """
+    if value and value.isascii() and value.isdigit() and len(value) <= 18:
+        return int(value)
+    return None
 
 
 def signup(request):

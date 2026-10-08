@@ -24,9 +24,14 @@
 - [x] **T15** — Admin: Movie, Seat (status read-only), Booking (no add) · covers: plan §6
 - [x] **T16** — Behave: "See which seats are free", "Book an available seat", "Seat already taken", "Must sign in to book" · covers: AC-1, AC-2, AC-3, AC-8
 
+### Fixes from the review (prompts/05-review.md)
+- [x] **R1** — Odd input is 400 or a message, never 500 (`²`, huge ids, unknown status, duration > 1440) · tests: `MalformedInputTests` · covers: AC-9, AC-10, 001 AC-6
+- [x] **R2** — Stored status always recomputed from bookings (user deletion, stale cancel, refused duplicate) · tests: `SeatStatusConsistencyTests` · covers: Open question 2, AC-4
+- [x] **R3** — Fill test gaps; route only login/logout · tests: `ReviewGapTests` · covers: AC-2, AC-8, AC-13, 003 AC-7, §6
+
 ## Done when
-- [ ] Every acceptance criterion in `spec.md` has a passing test
-- [ ] Full suite green: `python manage.py test`
-- [ ] `python manage.py behave` passes
-- [ ] Coverage ≥ 80%
-- [ ] `AI-USAGE.md` updated
+- [x] Every acceptance criterion in `spec.md` has a passing test
+- [x] Full suite green: `python manage.py test`
+- [x] `python manage.py behave` passes
+- [x] Coverage ≥ 80%
+- [x] `AI-USAGE.md` updated

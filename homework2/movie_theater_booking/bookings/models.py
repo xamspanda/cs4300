@@ -1,8 +1,11 @@
 """Data models for the movie theater: movies, their seats, and bookings."""
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+
+MAX_DURATION_MINUTES = 24 * 60
 
 
 class Movie(models.Model):
@@ -12,8 +15,10 @@ class Movie(models.Model):
     description = models.TextField(blank=True)
     release_date = models.DateField()
     # PositiveIntegerField still allows 0, and a zero-minute movie is not valid.
+    # The upper bound keeps absurd values out (and within every database's range).
     duration = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)], help_text="Length in whole minutes."
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_DURATION_MINUTES)],
+        help_text="Length in whole minutes.",
     )
 
     class Meta:

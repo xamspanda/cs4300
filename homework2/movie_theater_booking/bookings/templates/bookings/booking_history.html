@@ -32,7 +32,7 @@
           </td>
           <td class="text-end">
             <form method="post" action="{% url 'cancel_booking' booking.id %}"
-                  onsubmit="return confirm('Cancel your booking of seat {{ booking.seat.seat_number }} for {{ booking.movie.title|escapejs }}?');">
+                  onsubmit="return confirm('Cancel your booking of seat {{ booking.seat.seat_number|escapejs }} for {{ booking.movie.title|escapejs }}?');">
               {% csrf_token %}
               <button type="submit" class="btn btn-sm btn-outline-danger">
                 <i class="bi bi-x-circle"></i> Cancel

@@ -1,6 +1,6 @@
 # Spec: Seat booking
 
-**Status:** Reviewed
+**Status:** Implemented
 **Author:** Laura  **Date:** 2026-10-08
 
 ## 1. Problem
@@ -89,7 +89,7 @@ One booking is one seat. To sit with friends, a moviegoer books each seat in tur
   (`available` or `booked`), A2 being `booked`
 - When a client adds `&booking_status=available`
 - Then A2 is left out
-- When `movie` is not a whole number
+- When `movie` is not a whole number, or `booking_status` is not `available` or `booked`
 - Then the response is 400
 
 **AC-11 (US-3): Book through the seats API**
@@ -152,15 +152,16 @@ One booking is one seat. To sit with friends, a moviegoer books each seat in tur
       belongs to one movie, so it is per (movie, seat). (2) **The Booking is the source of truth**:
       a seat is taken exactly when a booking for it exists, and the database refuses a second one.
       (3) The stored booking status is a copy kept so the seat list can show and filter it cheaply.
-      Only the one booking operation (book, and cancel in 003) writes it, inside the same database
-      transaction as the booking change. The admin site shows status as read-only, can't add
-      bookings, and cancels through the same operation when it deletes them. Deleting a movie
+      Only the booking module writes it, recomputing it from the bookings in the same database
+      transaction as every booking change. Any other way a booking disappears (the admin site, or
+      deleting a user) triggers the same recomputation. The admin site shows status as read-only and
+      can't add bookings. Deleting a movie
       deletes its seats and bookings together. (4) AC-2 and AC-11 check the status after booking,
       and 003's AC-9 checks it after cancelling.
 - [x] **Where does "book a seat" live?** → One function in its own module. The seat page,
       `/api/seats/<id>/book/` and `/api/bookings/` (003) all call it with the signed-in user and the
-      seat. It checks the seat is free, saves the booking and sets the status, and turns the
-      database's duplicate refusal into the same "already booked" error. A second copy of these
+      seat. It saves the booking, lets the database refuse a seat that is already taken (turning that
+      into the "already booked" error), and updates the status. A second copy of these
       rules could drift (for example, forget the status update), and AC-6 would fail.
 - [x] Can a booking be cancelled? → **Yes, by its own user, in feature 003** (My Bookings and
       `DELETE /api/bookings/<id>/`). It uses the same module as booking.

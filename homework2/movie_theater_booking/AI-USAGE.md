@@ -30,4 +30,5 @@ Keep this log as you go, then copy the summary into your README.
 | 2026-10-08 | 002 T1–T16 | Implement test first | Seat/Booking, `services.book_seat`, seats API, auth pages, seat grid page, admin, Behave |
 | 2026-10-08 | 003 T1–T9 | Implement test first | `cancel_booking`, `BookingViewSet`, My Bookings page, admin delete through the service, Behave |
 | 2026-10-08 | Deploy | Seed command, `build.sh`, `render.yaml`, README | Smoke-tested production settings locally with gunicorn; Render deploy itself must be done from my Render account |
-| 2026-10-08 | Review (prompt 5) | Fresh subagent reviewed every AC against the code and tests | See the follow-up commits after the review |
+| 2026-10-08 | Review (prompt 5) | Fresh subagent (didn't write the code) reviewed every AC against the code and tests | It found 500s on odd input (`?movie=²`, huge ids), seat status drifting after deleting a user or a stale double cancel, exposed password-reset pages, and test gaps |
+| 2026-10-08 | Review fixes R1–R3 | Fix each finding test first | Safe id parsing and 400s; status recomputed from bookings everywhere (`post_delete` signal); only login/logout routed; duration ≤ 1440; SQLite IMMEDIATE transactions; 12 new tests. Not done: a true multi-threaded race test (noted in README) |
