@@ -82,6 +82,8 @@ class Booking(models.Model):
     booking_date = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        # Newest first; id breaks ties between bookings made in the same instant.
+        ordering = ["-booking_date", "-id"]
         constraints = [
             # The database, not a check in Python, is what stops two
             # simultaneous requests from booking the same seat (002 AC-4).

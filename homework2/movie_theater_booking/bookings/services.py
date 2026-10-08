@@ -50,3 +50,16 @@ def book_seat(user, seat):
     seat.booking_status = Seat.BookingStatus.BOOKED
     seat.save(update_fields=["booking_status"])
     return booking
+
+
+@transaction.atomic
+def cancel_booking(booking):
+    """Delete a booking and make its seat available again (003 AC-9).
+
+    Callers must check the booking belongs to the user asking; the API and the
+    page do that by only ever looking up the signed-in user's bookings.
+    """
+    seat = Seat.objects.select_for_update().get(pk=booking.seat_id)
+    booking.delete()
+    seat.booking_status = Seat.BookingStatus.AVAILABLE
+    seat.save(update_fields=["booking_status"])

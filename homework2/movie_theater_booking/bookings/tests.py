@@ -667,3 +667,146 @@ class AdminTests(TestCase):
             {"title": "Up", "description": "", "release_date": "2009-05-29", "duration": 96},
         )
         self.assertEqual(Movie.objects.get(title="Up").seats.count(), 40)
+
+
+# ---------------------------------------------------------------------------
+# 003 — Booking history
+# ---------------------------------------------------------------------------
+
+
+class CancelBookingServiceTests(TestCase):
+    """003 AC-9 — cancelling frees the seat."""
+
+    def test_cancel_booking_frees_seat(self):
+        """AC-9: the booking is deleted and the seat is available to anyone again."""
+        dune = make_movie("Dune")
+        a1 = seat(dune, "A1")
+        booking = services.book_seat(make_user("sam"), a1)
+        services.cancel_booking(booking)
+        self.assertFalse(Booking.objects.exists())
+        a1.refresh_from_db()
+        self.assertFalse(a1.is_booked)
+        services.book_seat(make_user("alex"), a1)  # free again
+
+
+class BookingApiTests(APITestCase):
+    """003 — /api/bookings/ (AC-2, AC-3, AC-6 to AC-10)."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.up = make_movie("Up", date(2009, 5, 29), 96)
+        self.sam = make_user("sam")
+        self.alex = make_user("alex")
+        self.sam_booking = services.book_seat(self.sam, seat(self.dune, "A1"))
+        self.alex_booking = services.book_seat(self.alex, seat(self.dune, "A2"))
+        self.client.force_authenticate(self.sam)
+        self.list_url = reverse("booking-list")
+
+    def detail_url(self, booking):
+        return reverse("booking-detail", args=[booking.pk])
+
+    def test_list_bookings_only_returns_own(self):
+        """AC-2: Sam's list has Sam's booking and none of Alex's."""
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([b["id"] for b in response.data], [self.sam_booking.pk])
+        self.assertEqual(response.data[0]["user"], "sam")
+
+    def test_cannot_retrieve_another_users_booking(self):
+        """AC-3: someone else's booking is 404, the same as a missing one."""
+        response = self.client.get(self.detail_url(self.alex_booking))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn("seat", response.data)
+        self.assertEqual(
+            self.client.get(reverse("booking-detail", args=[9999])).status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        response = self.client.get(self.detail_url(self.sam_booking))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["seat_number"], "A1")
+
+    def test_bookings_newest_first(self):
+        """AC-8: the newest booking comes first."""
+        newer = services.book_seat(self.sam, seat(self.up, "B2"))
+        ids = [b["id"] for b in self.client.get(self.list_url).data]
+        self.assertEqual(ids, [newer.pk, self.sam_booking.pk])
+
+    def test_bookings_api_requires_sign_in(self):
+        """AC-6: signed out, list, create, retrieve and delete are all 401."""
+        self.client.force_authenticate(None)
+        free_seat = seat(self.dune, "A3")
+        attempts = [
+            self.client.get(self.list_url),
+            self.client.post(self.list_url, {"seat": free_seat.pk}, format="json"),
+            self.client.get(self.detail_url(self.sam_booking)),
+            self.client.delete(self.detail_url(self.sam_booking)),
+        ]
+        for response in attempts:
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Booking.objects.count(), 2)
+
+    def test_create_booking_via_bookings_api(self):
+        """AC-7: POST {"seat": id} is 201 with the booking, and the seat is booked."""
+        b2 = seat(self.up, "B2")
+        response = self.client.post(self.list_url, {"seat": b2.pk}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["movie"], self.up.pk)
+        self.assertEqual(response.data["seat_number"], "B2")
+        self.assertEqual(response.data["user"], "sam")
+        b2.refresh_from_db()
+        self.assertTrue(b2.is_booked)
+
+    def test_create_booking_ignores_user_in_request_data(self):
+        """AC-7 / 002 AC-5: "user" (and "movie") in the request are ignored."""
+        b2 = seat(self.up, "B2")
+        response = self.client.post(
+            self.list_url,
+            {"seat": b2.pk, "user": self.alex.pk, "movie": self.dune.pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        booking = Booking.objects.get(seat=b2)
+        self.assertEqual(booking.user, self.sam)
+        self.assertEqual(booking.movie, self.up)
+
+    def test_seat_booked_via_seats_api_refused_via_bookings_api(self):
+        """AC-7 / 002 AC-6: a seat booked through /api/seats/ is 409 here."""
+        a3 = seat(self.dune, "A3")
+        self.client.post(reverse("seat-book", args=[a3.pk]))
+        self.client.force_authenticate(self.alex)
+        response = self.client.post(self.list_url, {"seat": a3.pk}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["detail"], "Seat A3 for Dune is already booked.")
+        self.assertEqual(Booking.objects.get(seat=a3).user, self.sam)
+
+    def test_create_booking_bad_seat_400(self):
+        """AC-7: a missing or nonexistent seat is 400 with an error for seat."""
+        for data in ({}, {"seat": 9999}):
+            with self.subTest(data=data):
+                response = self.client.post(self.list_url, data, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("seat", response.data)
+
+    def test_cancel_booking_via_api(self):
+        """AC-9: DELETE is 204 and frees the seat."""
+        response = self.client.delete(self.detail_url(self.sam_booking))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Booking.objects.filter(pk=self.sam_booking.pk).exists())
+        self.assertFalse(seat(self.dune, "A1").is_booked)
+
+    def test_cannot_cancel_another_users_booking(self):
+        """AC-9: deleting Alex's booking is 404 and leaves it alone."""
+        response = self.client.delete(self.detail_url(self.alex_booking))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Booking.objects.filter(pk=self.alex_booking.pk).exists())
+        self.assertTrue(seat(self.dune, "A2").is_booked)
+
+    def test_bookings_cannot_be_edited(self):
+        """AC-10: PUT and PATCH are 405 and change nothing."""
+        b2 = seat(self.up, "B2")
+        for method in (self.client.put, self.client.patch):
+            with self.subTest(method=method.__name__):
+                response = method(self.detail_url(self.sam_booking), {"seat": b2.pk}, format="json")
+                self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.sam_booking.refresh_from_db()
+        self.assertEqual(self.sam_booking.seat.seat_number, "A1")

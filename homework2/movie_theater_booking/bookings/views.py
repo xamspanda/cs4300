@@ -9,7 +9,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
-from rest_framework import exceptions, status, viewsets
+from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -67,6 +67,36 @@ class SeatViewSet(viewsets.ReadOnlyModelViewSet):
     def book(self, request, pk=None):
         """Book this seat for the signed-in user: 201, 401, 404 or 409 (AC-11)."""
         return book_seat_response(request.user, self.get_object())
+
+
+class BookingViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """The signed-in user's bookings at /api/bookings/ (003).
+
+    list, retrieve, create and destroy (cancel) only. There is no update, so PUT
+    and PATCH are 405 (AC-10).
+    """
+
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Every action looks bookings up through this, so another user's
+        # booking is simply not found: 404, never 403 (AC-2, AC-3).
+        return self.request.user.bookings.select_related("movie", "seat")
+
+    def create(self, request, *args, **kwargs):
+        """Book {"seat": id} for the signed-in user: 201, 400, 401 or 409 (AC-7)."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return book_seat_response(request.user, serializer.validated_data["seat"])
+
+    def perform_destroy(self, instance):
+        services.cancel_booking(instance)  # AC-9
 
 
 def movie_list(request):
