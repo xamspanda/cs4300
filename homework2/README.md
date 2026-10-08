@@ -4,7 +4,7 @@ A movie theater booking app with a REST API (Django REST Framework) and a
 Bootstrap user interface (Django templates). Users browse movies, book seats,
 check their booking history and cancel bookings, through the web pages or the API.
 
-**Render URL:** _TODO: add after deploying (see [Deploying to Render](#deploying-to-render))_
+**Render URL:** https://cs4300-o29m.onrender.com/ (free plan: the first request after idling can take about a minute)
 
 **GitHub:** https://github.com/xamspanda/cs4300/tree/main/homework2
 
@@ -147,7 +147,7 @@ homework2/
    `python -c "import secrets; print(secrets.token_urlsafe(50))"`. Render sets `RENDER` and
    `RENDER_EXTERNAL_HOSTNAME` itself; the settings use them to turn off `DEBUG`, allow the host
    and trust its HTTPS origin.
-4. Deploy, then put the `https://<name>.onrender.com` URL at the top of this README.
+4. Deploy. This app is live at https://cs4300-o29m.onrender.com/.
 
 (`render.yaml` describes the same service as a Blueprint, if you prefer that route.)
 
