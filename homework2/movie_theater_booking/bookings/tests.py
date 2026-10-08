@@ -5,14 +5,17 @@ acceptance criterion (AC-#) it proves in its docstring.
 """
 
 from datetime import date
+from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Movie
+from . import services
+from .models import Booking, Movie, Seat
 
 User = get_user_model()
 
@@ -208,3 +211,116 @@ class MovieDurationDisplayTests(TestCase):
         for minutes, expected in cases.items():
             with self.subTest(minutes=minutes):
                 self.assertEqual(Movie(duration=minutes).duration_display, expected)
+
+
+# ---------------------------------------------------------------------------
+# 002 — Seat booking
+# ---------------------------------------------------------------------------
+
+
+def seat(movie, number):
+    """Look up one of a movie's automatically created seats, e.g. seat(dune, "A1")."""
+    return movie.seats.get(seat_number=number)
+
+
+class SeatModelTests(TestCase):
+    """002 — Seat data rules and automatic seats (AC-13)."""
+
+    def test_seat_str_and_default_status(self):
+        """Data: a seat prints as "A1 – Dune" and starts available."""
+        dune = make_movie("Dune")
+        a1 = seat(dune, "A1")
+        self.assertEqual(str(a1), "A1 – Dune")
+        self.assertEqual(a1.booking_status, Seat.BookingStatus.AVAILABLE)
+        self.assertFalse(a1.is_booked)
+
+    def test_new_movie_gets_40_available_seats(self):
+        """AC-13: a new movie has rows A–E with seats 1–8, all available."""
+        dune = make_movie("Dune")
+        numbers = [s.seat_number for s in dune.seats.all()]
+        self.assertEqual(len(numbers), 40)
+        self.assertEqual(numbers[:3], ["A1", "A2", "A3"])
+        self.assertIn("E8", numbers)
+        self.assertFalse(dune.seats.exclude(booking_status="available").exists())
+
+    def test_updating_a_movie_does_not_add_seats(self):
+        """AC-13: seats are made only when the movie is created."""
+        dune = make_movie("Dune")
+        dune.title = "Dune: Part One"
+        dune.save()
+        self.assertEqual(dune.seats.count(), 40)
+
+    def test_seat_numbers_unique_within_a_movie(self):
+        """Data: a movie can't have two A1 seats, but two movies each have their own A1."""
+        dune = make_movie("Dune")
+        up = make_movie("Up")
+        self.assertEqual(Seat.objects.filter(seat_number="A1").count(), 2)
+        # The savepoint keeps the test's transaction usable after the error.
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Seat.objects.create(movie=dune, seat_number="A1")
+        self.assertEqual(up.seats.count(), 40)
+
+
+class BookingModelTests(TestCase):
+    """002 — Booking data rules (AC-4)."""
+
+    def test_duplicate_booking_rejected_by_database(self):
+        """AC-4: saving a second booking of a seat directly raises IntegrityError."""
+        dune = make_movie("Dune")
+        a1 = seat(dune, "A1")
+        Booking.objects.create(movie=dune, seat=a1, user=make_user("sam"))
+        alex = make_user("alex")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Booking.objects.create(movie=dune, seat=a1, user=alex)
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_booking_str(self):
+        """Data: a booking prints who booked which seat."""
+        dune = make_movie("Dune")
+        booking = Booking.objects.create(movie=dune, seat=seat(dune, "A1"), user=make_user())
+        self.assertEqual(str(booking), "sam: A1 – Dune")
+
+
+class BookSeatServiceTests(TestCase):
+    """002 — The one shared booking operation (AC-2 to AC-4)."""
+
+    def setUp(self):
+        self.dune = make_movie("Dune")
+        self.a1 = seat(self.dune, "A1")
+        self.sam = make_user("sam")
+
+    def test_book_seat_creates_booking_and_marks_seat_booked(self):
+        """AC-2: booking saves movie, seat, user and date, and marks the seat booked."""
+        booking = services.book_seat(self.sam, self.a1)
+        self.assertEqual(booking.user, self.sam)
+        self.assertEqual(booking.movie, self.dune)
+        self.assertEqual(booking.seat, self.a1)
+        self.assertIsNotNone(booking.booking_date)
+        self.a1.refresh_from_db()
+        self.assertTrue(self.a1.is_booked)
+
+    def test_book_seat_refuses_taken_seat(self):
+        """AC-3: a second booking of the same seat raises SeatUnavailable."""
+        services.book_seat(self.sam, self.a1)
+        with self.assertRaisesMessage(
+            services.SeatUnavailable, "Seat A1 for Dune is already booked."
+        ):
+            services.book_seat(make_user("alex"), self.a1)
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_book_seat_turns_integrity_error_into_seat_unavailable(self):
+        """AC-4: a duplicate saved behind the service's back is still refused cleanly.
+
+        The seat's stored status still says "available", which is exactly the
+        race the database constraint exists for.
+        """
+        Booking.objects.create(movie=self.dune, seat=self.a1, user=self.sam)
+        with self.assertRaises(services.SeatUnavailable):
+            services.book_seat(make_user("alex"), self.a1)
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_book_seat_leaves_other_movies_seats_alone(self):
+        """Data: availability is per movie."""
+        up = make_movie("Up")
+        services.book_seat(self.sam, self.a1)
+        self.assertFalse(seat(up, "A1").is_booked)

@@ -7,11 +7,11 @@
 > Each task names its test and the acceptance criterion (AC-#) it covers.
 > The AI assistant ticks the box when the task's tests pass. **You** commit.
 
-- [ ] **T1** — `Seat` model (movie, seat_number, booking_status) + migration · test: `test_seat_str_and_default_status` · covers: Data
-- [ ] **T2** — `create_seats_for_movie` + `post_save` signal · test: `test_new_movie_gets_40_available_seats` · covers: AC-13
-- [ ] **T3** — `Booking` model + unique constraint on seat + migration · test: `test_duplicate_booking_rejected_by_database` · covers: AC-4
-- [ ] **T4** — `book_seat()` service: saves booking, sets status · test: `test_book_seat_creates_booking_and_marks_seat_booked` · covers: AC-2
-- [ ] **T5** — `book_seat()` refuses a taken seat, including a duplicate saved behind its back · tests: `test_book_seat_refuses_taken_seat`, `test_book_seat_turns_integrity_error_into_seat_unavailable` · covers: AC-3, AC-4
+- [x] **T1** — `Seat` model (movie, seat_number, booking_status) + migration · test: `test_seat_str_and_default_status` · covers: Data
+- [x] **T2** — `create_seats_for_movie` + `post_save` signal · test: `test_new_movie_gets_40_available_seats` · covers: AC-13
+- [x] **T3** — `Booking` model + unique constraint on seat + migration · test: `test_duplicate_booking_rejected_by_database` · covers: AC-4
+- [x] **T4** — `book_seat()` service: saves booking, sets status · test: `test_book_seat_creates_booking_and_marks_seat_booked` · covers: AC-2
+- [x] **T5** — `book_seat()` refuses a taken seat, including a duplicate saved behind its back · tests: `test_book_seat_refuses_taken_seat`, `test_book_seat_turns_integrity_error_into_seat_unavailable` · covers: AC-3, AC-4
 - [ ] **T6** — `SeatSerializer` + `SeatViewSet` (read-only) + route; filters · tests: `test_list_seats_filtered_by_movie`, `test_list_seats_filtered_by_status`, `test_list_seats_bad_movie_param_400` · covers: AC-10
 - [ ] **T7** — Seats can't be changed via API · test: `test_seats_cannot_be_changed_via_api` · covers: AC-12
 - [ ] **T8** — `BookingSerializer` + `SeatViewSet.book` → 201 · tests: `test_book_seat_via_seats_api`, `test_booking_user_is_request_user_not_request_data` · covers: AC-11, AC-5
